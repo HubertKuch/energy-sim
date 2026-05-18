@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package solar;
+
+service SolarSolver {
+  rpc Solve (SolarRequest) returns (SolarResponse);
+}
+
+message Location {
+  double latitude = 1;
+  double longitude = 2;
+  string tz = 3;
+  double altitude = 4;
+}
+
+message ModuleParameters {
+  double pdc0 = 1;
+  double gamma_pdc = 2;
+}
+
+message InverterParameters {
+  double pdc0 = 1;
+  double eta_inv_nom = 2;
+}
+
+message SystemConfig {
+  double surface_tilt = 1;
+  double surface_azimuth = 2;
+  ModuleParameters module_parameters = 3;
+  InverterParameters inverter_parameters = 4;
+}
+
+message WeatherData {
+  string timestamp = 1; // ISO format
+  double ghi = 2;
+  double dni = 3;
+  double dhi = 4;
+  double temp_air = 5;
+  double wind_speed = 6;
+}
+
+message SolarRequest {
+  Location location = 1;
+  SystemConfig system_config = 2;
+  repeated WeatherData weather = 3;
+}
+
+message SolarResponse {
+  repeated double ac_output = 1;
+  repeated string timestamps = 2;
+}
