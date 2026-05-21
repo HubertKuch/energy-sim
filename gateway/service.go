@@ -1,0 +1,176 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"math"
+	"time"
+
+	pb "github.com/hubertkuch/solar/gateway/pb"
+)
+
+// SimulationService defines the business logic operations for simulations.
+type SimulationService interface {
+	RunSimulation(ctx context.Context, req *SimulationRequest) (*SimulationResponse, error)
+	Solve(ctx context.Context, params SolveParams) (*SimulationResponse, error)
+}
+
+// simulationService implements SimulationService using a gRPC client.
+type simulationService struct {
+	client pb.SolarSolverClient
+}
+
+// NewSimulationService creates a new SimulationService.
+func NewSimulationService(client pb.SolarSolverClient) SimulationService {
+	return &simulationService{
+		client: client,
+	}
+}
+
+func (s *simulationService) Solve(ctx context.Context, params SolveParams) (*SimulationResponse, error) {
+	// Generate weather data based on duration and temperature
+	var weatherData []*pb.WeatherData
+	startTime := params.When
+	hours := int(params.Duration.Hours())
+	if hours == 0 {
+		hours = 1
+	}
+
+	for h := 0; h < hours; h++ {
+		ts := startTime.Add(time.Duration(h) * time.Hour)
+
+		ghi := 0.0
+		hourFloat := float64(ts.Hour())
+		if hourFloat >= 6 && hourFloat <= 18 {
+			ghi = 1000 * math.Exp(-math.Pow(hourFloat-12, 2)/16)
+		}
+
+		weatherData = append(weatherData, &pb.WeatherData{
+			Timestamp: ts.Format("2006-01-02 15:04:05"),
+			Ghi:       ghi,
+			Dni:       ghi * 0.8,
+			Dhi:       ghi * 0.2,
+			TempAir:   params.Temperature,
+			WindSpeed: 2,
+		})
+	}
+
+	solarReq := &pb.SolarRequest{
+		Location: params.Location,
+		SystemConfig: &pb.SystemConfig{
+			Arrays: []*pb.ArrayConfig{
+				{
+					SurfaceTilt:      30,
+					SurfaceAzimuth:   180,
+					ModulesPerString: 10,
+					Strings:          2,
+					Panel: &pb.SolarPanel{
+						Pdc0:          params.Panel.Pdc0,
+						VMp:           params.Panel.Vmp,
+						IMp:           params.Panel.Imp,
+						VOc:           params.Panel.Voc,
+						ISc:           params.Panel.Isc,
+						GammaPdc:      params.Panel.GammaPdc,
+						AlphaSc:       params.Panel.AlphaSc,
+						BetaVoc:       params.Panel.BetaVoc,
+						CellsInSeries: params.Panel.CellsInSeries,
+					},
+				},
+			},
+			InverterParameters: &pb.InverterParameters{
+				Pdc0:        5000,
+				EtaInvNom:   0.96,
+				VDcMax:      1000,
+			},
+		},
+		Weather: weatherData,
+	}
+
+	res, err := s.client.Solve(ctx, solarReq)
+	if err != nil {
+		return nil, fmt.Errorf("gRPC call failed: %w", err)
+	}
+
+	return &SimulationResponse{
+		AcOutput:   res.AcOutput,
+		Timestamps: res.Timestamps,
+	}, nil
+}
+
+func (s *simulationService) RunSimulation(ctx context.Context, req *SimulationRequest) (*SimulationResponse, error) {
+	// Parse date
+	date, err := time.Parse("2006-01-02", req.Date)
+	if err != nil {
+		return nil, fmt.Errorf("invalid date format: %w", err)
+	}
+
+	weatherData := s.generateHourlyWeatherData(date)
+
+	// Map internal types to protobuf
+	var pbArrays []*pb.ArrayConfig
+	for _, arr := range req.SystemConfig.Arrays {
+		pbArrays = append(pbArrays, &pb.ArrayConfig{
+			SurfaceTilt:      arr.SurfaceTilt,
+			SurfaceAzimuth:   arr.SurfaceAzimuth,
+			ModulesPerString: arr.ModulesPerString,
+			Strings:          arr.Strings,
+			Panel: &pb.SolarPanel{
+				Pdc0:          arr.Panel.Pdc0,
+				VMp:           arr.Panel.Vmp,
+				IMp:           arr.Panel.Imp,
+				VOc:           arr.Panel.Voc,
+				ISc:           arr.Panel.Isc,
+				GammaPdc:      arr.Panel.GammaPdc,
+				AlphaSc:       arr.Panel.AlphaSc,
+				BetaVoc:       arr.Panel.BetaVoc,
+				CellsInSeries: arr.Panel.CellsInSeries,
+			},
+		})
+	}
+
+	solarReq := &pb.SolarRequest{
+		Location: req.Location,
+		SystemConfig: &pb.SystemConfig{
+			Arrays: pbArrays,
+			InverterParameters: &pb.InverterParameters{
+				Pdc0:        req.SystemConfig.InverterParameters.Pdc0,
+				EtaInvNom:   req.SystemConfig.InverterParameters.EtaInvNom,
+				VDcMax:      req.SystemConfig.InverterParameters.VdcMax,
+			},
+		},
+		Weather: weatherData,
+	}
+
+	res, err := s.client.Solve(ctx, solarReq)
+	if err != nil {
+		return nil, fmt.Errorf("gRPC call failed: %w", err)
+	}
+
+	return &SimulationResponse{
+		AcOutput:   res.AcOutput,
+		Timestamps: res.Timestamps,
+	}, nil
+}
+
+func (s *simulationService) generateHourlyWeatherData(date time.Time) []*pb.WeatherData {
+	var weatherData []*pb.WeatherData
+	for h := 0; h < 24; h++ {
+		ts := time.Date(date.Year(), date.Month(), date.Day(), h, 0, 0, 0, date.Location())
+
+		ghi := 0.0
+		hourFloat := float64(h)
+		if h >= 6 && h <= 18 {
+			ghi = 1000 * math.Exp(-math.Pow(hourFloat-12, 2)/16)
+		}
+
+		weatherData = append(weatherData, &pb.WeatherData{
+			Timestamp: ts.Format("2006-01-02 15:04:05"),
+			Ghi:       ghi,
+			Dni:       ghi * 0.8,
+			Dhi:       ghi * 0.2,
+			TempAir:   20,
+			WindSpeed: 2,
+		})
+	}
+	return weatherData
+}

@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package solar;
 
+option go_package = "github.com/hubertkuch/solar/gateway/pb/solar";
+
 service SolarSolver {
   rpc Solve (SolarRequest) returns (SolarResponse);
 }
@@ -13,21 +15,35 @@ message Location {
   double altitude = 4;
 }
 
-message ModuleParameters {
-  double pdc0 = 1;
-  double gamma_pdc = 2;
+message SolarPanel {
+  double pdc0 = 1;          // Nominal power [W]
+  double v_mp = 2;          // Max power voltage [V]
+  double i_mp = 3;          // Max power current [A]
+  double v_oc = 4;          // Open circuit voltage [V]
+  double i_sc = 5;          // Short circuit current [A]
+  double gamma_pdc = 6;     // Temp coefficient of power [%/C or decimal]
+  double alpha_sc = 7;      // Temp coefficient of short circuit current [A/C]
+  double beta_voc = 8;      // Temp coefficient of open circuit voltage [V/C]
+  int32 cells_in_series = 9;
 }
 
 message InverterParameters {
-  double pdc0 = 1;
-  double eta_inv_nom = 2;
+  double pdc0 = 1;          // Nominal AC power [W]
+  double eta_inv_nom = 2;   // Nominal efficiency [decimal]
+  double v_dc_max = 3;      // Max DC voltage [V]
+}
+
+message ArrayConfig {
+  double surface_tilt = 1;
+  double surface_azimuth = 2;
+  int32 modules_per_string = 3; // Number of modules in series
+  int32 strings = 4;            // Number of strings in parallel
+  SolarPanel panel = 5;
 }
 
 message SystemConfig {
-  double surface_tilt = 1;
-  double surface_azimuth = 2;
-  ModuleParameters module_parameters = 3;
-  InverterParameters inverter_parameters = 4;
+  repeated ArrayConfig arrays = 1;
+  InverterParameters inverter_parameters = 2;
 }
 
 message WeatherData {

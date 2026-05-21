@@ -9,6 +9,7 @@ dependencies = [
     "grpcio>=1.80.0",
     "grpcio-tools>=1.80.0",
     "pytest>=9.0.3",
+    "requests>=2.34.2",
 ]
 
 [tool.pytest.ini_options]

@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+*.class
+.venv/
+.pytest_cache/
+solver/solar_solver/pb/*_pb2*.py
+
+# Go
+gateway/gateway
+gateway/pb/*.go
+
+# General
+.DS_Store

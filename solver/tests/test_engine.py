@@ -4,7 +4,7 @@ import pandas as pd
 from solar_solver.engine import solve_solar
 
 def test_solve_solar_basic():
-    # Mocking the gRPC request using SimpleNamespace for brevity in tests
+    # Mocking the expanded gRPC request
     request = SimpleNamespace(
         location=SimpleNamespace(
             latitude=52.2297,
@@ -13,10 +13,30 @@ def test_solve_solar_basic():
             altitude=100
         ),
         system_config=SimpleNamespace(
-            surface_tilt=30,
-            surface_azimuth=180,
-            module_parameters=SimpleNamespace(pdc0=300, gamma_pdc=-0.004),
-            inverter_parameters=SimpleNamespace(pdc0=5000, eta_inv_nom=0.96)
+            arrays=[
+                SimpleNamespace(
+                    surface_tilt=30,
+                    surface_azimuth=180,
+                    modules_per_string=10,
+                    strings=2,
+                    module_parameters=SimpleNamespace(
+                        pdc0=300,
+                        v_mp=30,
+                        i_mp=10,
+                        v_oc=37,
+                        i_sc=11,
+                        gamma_pdc=-0.004,
+                        alpha_sc=0.005,
+                        beta_voc=-0.11,
+                        cells_in_series=60
+                    )
+                )
+            ],
+            inverter_parameters=SimpleNamespace(
+                pdc0=5000,
+                eta_inv_nom=0.96,
+                v_dc_max=1000
+            )
         ),
         weather=[
             SimpleNamespace(
@@ -34,4 +54,4 @@ def test_solve_solar_basic():
     
     assert isinstance(results, pd.Series)
     assert len(results) == 1
-    assert results.iloc[0] > 0  # Should produce power at noon
+    assert results.iloc[0] > 0
