@@ -29,6 +29,38 @@ class SolarPanel:
             'cells_in_series': self.cells_in_series,
         }
 
+class SolarInverter:
+    def __init__(self, pdc0, eta_inv_nom, v_dc_max):
+        self.pdc0 = pdc0
+        self.eta_inv_nom = eta_inv_nom
+        self.v_dc_max = v_dc_max
+
+    def to_pvlib_dict(self):
+        return {
+            'pdc0': self.pdc0,
+            'eta_inv_nom': self.eta_inv_nom,
+            'v_dc_max': self.v_dc_max,
+        }
+
+class SolarArray:
+    def __init__(self, panel: SolarPanel, modules_per_string: int, strings: int, tilt: float, azimuth: float):
+        self.panel = panel
+        self.modules_per_string = modules_per_string
+        self.strings = strings
+        self.tilt = tilt
+        self.azimuth = azimuth
+
+    def to_pvlib_array(self):
+        temp_params = TEMPERATURE_MODEL_PARAMETERS['sapm']['open_rack_glass_glass']
+        mount = FixedMount(surface_tilt=self.tilt, surface_azimuth=self.azimuth)
+        return Array(
+            mount=mount,
+            module_parameters=self.panel.to_pvlib_dict(),
+            temperature_model_parameters=temp_params,
+            modules_per_string=self.modules_per_string,
+            strings=self.strings
+        )
+
 def parse_location(request_location) -> Location:
     return Location(
         latitude=request_location.latitude,
@@ -39,10 +71,7 @@ def parse_location(request_location) -> Location:
 
 def parse_arrays(system_config) -> list[Array]:
     arrays = []
-    temp_params = TEMPERATURE_MODEL_PARAMETERS['sapm']['open_rack_glass_glass']
-    
     for arr_config in system_config.arrays:
-        # Map gRPC panel to our SolarPanel domain object
         panel = SolarPanel(
             pdc0=arr_config.panel.pdc0,
             v_mp=arr_config.panel.v_mp,
@@ -55,36 +84,31 @@ def parse_arrays(system_config) -> list[Array]:
             cells_in_series=arr_config.panel.cells_in_series
         )
         
-        mount = FixedMount(
-            surface_tilt=arr_config.surface_tilt,
-            surface_azimuth=arr_config.surface_azimuth
-        )
-        
-        array = Array(
-            mount=mount, 
-            module_parameters=panel.to_pvlib_dict(),
-            temperature_model_parameters=temp_params,
+        solar_array = SolarArray(
+            panel=panel,
             modules_per_string=arr_config.modules_per_string,
-            strings=arr_config.strings
+            strings=arr_config.strings,
+            tilt=arr_config.surface_tilt,
+            azimuth=arr_config.surface_azimuth
         )
-        arrays.append(array)
+        arrays.append(solar_array.to_pvlib_array())
         
     return arrays
 
-def parse_inverter_parameters(inverter_config) -> dict:
-    return {
-        'pdc0': inverter_config.pdc0,
-        'eta_inv_nom': inverter_config.eta_inv_nom,
-        'v_dc_max': inverter_config.v_dc_max,
-    }
+def parse_inverter(inverter_config) -> SolarInverter:
+    return SolarInverter(
+        pdc0=inverter_config.pdc0,
+        eta_inv_nom=inverter_config.eta_inv_nom,
+        v_dc_max=inverter_config.v_dc_max,
+    )
 
 def create_pv_system(system_config) -> PVSystem:
     arrays = parse_arrays(system_config)
     if not arrays:
-        raise ValueError("SystemConfig must contain at least one ArrayConfig")
+        raise ValueError("SystemConfig must contain at least one SolarArray")
 
-    inverter_parameters = parse_inverter_parameters(system_config.inverter_parameters)
-    return PVSystem(arrays=arrays, inverter_parameters=inverter_parameters)
+    inverter = parse_inverter(system_config.inverter)
+    return PVSystem(arrays=arrays, inverter_parameters=inverter.to_pvlib_dict())
 
 def parse_weather_data(weather_list, tz: str) -> pd.DataFrame:
     weather_df = pd.DataFrame([
@@ -119,18 +143,21 @@ def solve_solar(request):
 
     return mc.results.ac
 
-def solve(panel: SolarPanel, location: Location, weather_df: pd.DataFrame):
+def solve(panel: SolarPanel, inverter: SolarInverter, modules_per_string: int, strings: int, location: Location, weather_df: pd.DataFrame):
     """
     Domain-specific solve function.
     """
-    temp_params = TEMPERATURE_MODEL_PARAMETERS['sapm']['open_rack_glass_glass']
+    solar_array = SolarArray(
+        panel=panel,
+        modules_per_string=modules_per_string,
+        strings=strings,
+        tilt=30,
+        azimuth=180
+    )
+    
     system = PVSystem(
-        arrays=[Array(
-            mount=FixedMount(surface_tilt=30, surface_azimuth=180),
-            module_parameters=panel.to_pvlib_dict(),
-            temperature_model_parameters=temp_params
-        )],
-        inverter_parameters={'pdc0': 5000, 'eta_inv_nom': 0.96}
+        arrays=[solar_array.to_pvlib_array()],
+        inverter_parameters=inverter.to_pvlib_dict()
     )
     
     mc = ModelChain(system, location, spectral_model='no_loss', aoi_model='no_loss')

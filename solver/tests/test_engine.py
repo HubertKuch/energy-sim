@@ -1,57 +1,79 @@
 import pytest
-from types import SimpleNamespace
 import pandas as pd
-from solar_solver.engine import solve_solar
+from types import SimpleNamespace
+from solar_solver.engine import (
+    SolarPanel, SolarInverter, SolarArray, 
+    parse_location, parse_arrays, create_pv_system, solve
+)
 
-def test_solve_solar_basic():
-    # Mocking the expanded gRPC request
-    request = SimpleNamespace(
-        location=SimpleNamespace(
-            latitude=52.2297,
-            longitude=21.0122,
-            tz='Europe/Warsaw',
-            altitude=100
-        ),
-        system_config=SimpleNamespace(
-            arrays=[
-                SimpleNamespace(
-                    surface_tilt=30,
-                    surface_azimuth=180,
-                    modules_per_string=10,
-                    strings=2,
-                    module_parameters=SimpleNamespace(
-                        pdc0=300,
-                        v_mp=30,
-                        i_mp=10,
-                        v_oc=37,
-                        i_sc=11,
-                        gamma_pdc=-0.004,
-                        alpha_sc=0.005,
-                        beta_voc=-0.11,
-                        cells_in_series=60
-                    )
-                )
-            ],
-            inverter_parameters=SimpleNamespace(
-                pdc0=5000,
-                eta_inv_nom=0.96,
-                v_dc_max=1000
-            )
-        ),
-        weather=[
-            SimpleNamespace(
-                timestamp='2026-06-21 12:00:00',
-                ghi=1000,
-                dni=800,
-                dhi=200,
-                temp_air=25,
-                wind_speed=2
-            )
-        ]
+@pytest.fixture
+def sample_panel():
+    return SolarPanel(
+        pdc0=300, v_mp=30, i_mp=10, v_oc=37, i_sc=11,
+        gamma_pdc=-0.004, alpha_sc=0.005, beta_voc=-0.11, cells_in_series=60
     )
 
-    results = solve_solar(request)
+@pytest.fixture
+def sample_inverter():
+    return SolarInverter(pdc0=5000, eta_inv_nom=0.96, v_dc_max=1000)
+
+def test_solar_panel_to_pvlib(sample_panel):
+    d = sample_panel.to_pvlib_dict()
+    assert d['pdc0'] == 300
+    assert d['v_mp'] == 30
+
+def test_solar_inverter_to_pvlib(sample_inverter):
+    d = sample_inverter.to_pvlib_dict()
+    assert d['pdc0'] == 5000
+    assert d['eta_inv_nom'] == 0.96
+
+def test_parse_location():
+    loc_req = SimpleNamespace(latitude=52.2, longitude=21.0, tz='UTC', altitude=100)
+    loc = parse_location(loc_req)
+    assert loc.latitude == 52.2
+    assert loc.longitude == 21.0
+    assert loc.tz == 'UTC'
+
+def test_parse_arrays(sample_panel):
+    array_req = SimpleNamespace(
+        surface_tilt=30,
+        surface_azimuth=180,
+        modules_per_string=10,
+        strings=2,
+        panel=SimpleNamespace(**sample_panel.__dict__)
+    )
+    sys_config = SimpleNamespace(arrays=[array_req])
+    arrays = parse_arrays(sys_config)
     
-    assert isinstance(results, pd.Series)
-    assert len(results) == 1
+    assert len(arrays) == 1
+    assert arrays[0].modules_per_string == 10
+    assert arrays[0].strings == 2
+
+def test_solar_array_scaling(sample_panel):
+    array_single = SolarArray(sample_panel, 1, 1, 30, 180)
+    array_multi = SolarArray(sample_panel, 10, 2, 30, 180)
+    
+    pv_single = array_single.to_pvlib_array()
+    pv_multi = array_multi.to_pvlib_array()
+    
+    assert pv_single.modules_per_string == 1
+    assert pv_single.strings == 1
+    assert pv_multi.modules_per_string == 10
+    assert pv_multi.strings == 2
+
+def test_solve_basic(sample_panel, sample_inverter):
+    from pvlib.location import Location
+    loc = Location(52.2, 21.0, 'UTC', 100)
+    weather = pd.DataFrame({
+        'ghi': [1000, 0],
+        'dni': [800, 0],
+        'dhi': [200, 0],
+        'temp_air': [25, 25],
+        'wind_speed': [2, 2]
+    }, index=pd.to_datetime(['2026-06-21 12:00:00', '2026-06-21 23:00:00']).tz_localize('UTC'))
+    
+    results = solve(sample_panel, sample_inverter, 10, 2, loc, weather)
+    
+    assert len(results) == 2
     assert results.iloc[0] > 0
+    assert results.iloc[1] == 0  # Night

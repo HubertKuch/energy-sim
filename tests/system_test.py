@@ -65,7 +65,7 @@ def run_system_test():
                     }
                 }
             ],
-            "inverter_parameters": {
+            "inverter": {
                 "pdc0": 5000,
                 "eta_inv_nom": 0.96,
                 "v_dc_max": 1000
@@ -104,6 +104,13 @@ def run_system_test():
                 "beta_voc": -0.11,
                 "cells_in_series": 60
             },
+            "inverter": {
+                "pdc0": 5000,
+                "eta_inv_nom": 0.96,
+                "v_dc_max": 1000
+            },
+            "modules_per_string": 10,
+            "strings": 2,
             "duration": "24h",
             "when": "2026-06-21T00:00:00Z",
             "temperature": 25.0,

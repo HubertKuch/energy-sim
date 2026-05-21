@@ -27,23 +27,23 @@ message SolarPanel {
   int32 cells_in_series = 9;
 }
 
-message InverterParameters {
+message SolarInverter {
   double pdc0 = 1;          // Nominal AC power [W]
   double eta_inv_nom = 2;   // Nominal efficiency [decimal]
   double v_dc_max = 3;      // Max DC voltage [V]
 }
 
-message ArrayConfig {
+message SolarArray {
   double surface_tilt = 1;
   double surface_azimuth = 2;
-  int32 modules_per_string = 3; // Number of modules in series
-  int32 strings = 4;            // Number of strings in parallel
+  int32 modules_per_string = 3; // Vertical (series)
+  int32 strings = 4;            // Horizontal (parallel)
   SolarPanel panel = 5;
 }
 
 message SystemConfig {
-  repeated ArrayConfig arrays = 1;
-  InverterParameters inverter_parameters = 2;
+  repeated SolarArray arrays = 1;
+  SolarInverter inverter = 2;
 }
 
 message WeatherData {

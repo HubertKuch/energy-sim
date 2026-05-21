@@ -40,7 +40,8 @@ func (h *SimulationHandler) HandleSimulation(w http.ResponseWriter, r *http.Requ
 	res, err := h.service.RunSimulation(ctx, &req)
 	if err != nil {
 		log.Printf("Simulation error: %v", err)
-		http.Error(w, "Simulation failed", http.StatusInternalServerError)
+		// Simple error check for validation failures
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -80,15 +81,18 @@ func (h *SimulationHandler) HandleSolve(w http.ResponseWriter, r *http.Request) 
 	defer cancel()
 
 	res, err := h.service.Solve(ctx, SolveParams{
-		Panel:       req.Panel,
-		Duration:    duration,
-		When:        when,
-		Temperature: req.Temperature,
-		Location:    req.Location,
+		Panel:            req.Panel,
+		Inverter:         req.Inverter,
+		ModulesPerString: req.ModulesPerString,
+		Strings:          req.Strings,
+		Duration:         duration,
+		When:             when,
+		Temperature:      req.Temperature,
+		Location:         req.Location,
 	})
 	if err != nil {
 		log.Printf("Solve error: %v", err)
-		http.Error(w, "Solve failed", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 

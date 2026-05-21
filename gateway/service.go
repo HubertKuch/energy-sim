@@ -58,12 +58,12 @@ func (s *simulationService) Solve(ctx context.Context, params SolveParams) (*Sim
 	solarReq := &pb.SolarRequest{
 		Location: params.Location,
 		SystemConfig: &pb.SystemConfig{
-			Arrays: []*pb.ArrayConfig{
+			Arrays: []*pb.SolarArray{
 				{
 					SurfaceTilt:      30,
 					SurfaceAzimuth:   180,
-					ModulesPerString: 10,
-					Strings:          2,
+					ModulesPerString: params.ModulesPerString,
+					Strings:          params.Strings,
 					Panel: &pb.SolarPanel{
 						Pdc0:          params.Panel.Pdc0,
 						VMp:           params.Panel.Vmp,
@@ -77,10 +77,10 @@ func (s *simulationService) Solve(ctx context.Context, params SolveParams) (*Sim
 					},
 				},
 			},
-			InverterParameters: &pb.InverterParameters{
-				Pdc0:        5000,
-				EtaInvNom:   0.96,
-				VDcMax:      1000,
+			Inverter: &pb.SolarInverter{
+				Pdc0:      params.Inverter.Pdc0,
+				EtaInvNom: params.Inverter.EtaInvNom,
+				VDcMax:    params.Inverter.VdcMax,
 			},
 		},
 		Weather: weatherData,
@@ -107,9 +107,9 @@ func (s *simulationService) RunSimulation(ctx context.Context, req *SimulationRe
 	weatherData := s.generateHourlyWeatherData(date)
 
 	// Map internal types to protobuf
-	var pbArrays []*pb.ArrayConfig
+	var pbArrays []*pb.SolarArray
 	for _, arr := range req.SystemConfig.Arrays {
-		pbArrays = append(pbArrays, &pb.ArrayConfig{
+		pbArrays = append(pbArrays, &pb.SolarArray{
 			SurfaceTilt:      arr.SurfaceTilt,
 			SurfaceAzimuth:   arr.SurfaceAzimuth,
 			ModulesPerString: arr.ModulesPerString,
@@ -132,10 +132,10 @@ func (s *simulationService) RunSimulation(ctx context.Context, req *SimulationRe
 		Location: req.Location,
 		SystemConfig: &pb.SystemConfig{
 			Arrays: pbArrays,
-			InverterParameters: &pb.InverterParameters{
-				Pdc0:        req.SystemConfig.InverterParameters.Pdc0,
-				EtaInvNom:   req.SystemConfig.InverterParameters.EtaInvNom,
-				VDcMax:      req.SystemConfig.InverterParameters.VdcMax,
+			Inverter: &pb.SolarInverter{
+				Pdc0:      req.SystemConfig.Inverter.Pdc0,
+				EtaInvNom: req.SystemConfig.Inverter.EtaInvNom,
+				VDcMax:    req.SystemConfig.Inverter.VdcMax,
 			},
 		},
 		Weather: weatherData,
