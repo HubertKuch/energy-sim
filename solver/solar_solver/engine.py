@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from pvlib.modelchain import ModelChain
 from pvlib.location import Location
 from pvlib.pvsystem import PVSystem, Array, FixedMount
@@ -41,6 +42,34 @@ class SolarInverter:
             'eta_inv_nom': self.eta_inv_nom,
             'v_dc_max': self.v_dc_max,
         }
+
+class SolarBattery:
+    def __init__(self, capacity_kwh, max_charge_kw, max_discharge_kw, efficiency, initial_soc_kwh):
+        self.capacity_kwh = capacity_kwh
+        self.max_charge_kw = max_charge_kw
+        self.max_discharge_kw = max_discharge_kw
+        self.efficiency = efficiency
+        self.current_soc_kwh = initial_soc_kwh
+
+    def step(self, power_kw, dt_hours=1.0):
+        """
+        power_kw > 0 means excess solar (charging)
+        power_kw < 0 means deficit (discharging)
+        """
+        if power_kw > 0:
+            # Charge
+            charge_power = min(power_kw, self.max_charge_kw)
+            energy_to_add = charge_power * dt_hours * self.efficiency
+            actual_added = min(energy_to_add, self.capacity_kwh - self.current_soc_kwh)
+            self.current_soc_kwh += actual_added
+            return charge_power # Power used for charging
+        else:
+            # Discharge
+            discharge_req = min(abs(power_kw), self.max_discharge_kw)
+            energy_to_take = discharge_req * dt_hours
+            actual_taken = min(energy_to_take, self.current_soc_kwh)
+            self.current_soc_kwh -= actual_taken
+            return -(actual_taken / dt_hours) # Power provided by battery (negative)
 
 class SolarArray:
     def __init__(self, panel: SolarPanel, modules_per_string: int, strings: int, tilt: float, azimuth: float):
@@ -102,6 +131,17 @@ def parse_inverter(inverter_config) -> SolarInverter:
         v_dc_max=inverter_config.v_dc_max,
     )
 
+def parse_battery(battery_config) -> SolarBattery:
+    if not battery_config.capacity_kwh:
+        return None
+    return SolarBattery(
+        capacity_kwh=battery_config.capacity_kwh,
+        max_charge_kw=battery_config.max_charge_kw,
+        max_discharge_kw=battery_config.max_discharge_kw,
+        efficiency=battery_config.efficiency,
+        initial_soc_kwh=battery_config.initial_soc_kwh
+    )
+
 def create_pv_system(system_config) -> PVSystem:
     arrays = parse_arrays(system_config)
     if not arrays:
@@ -130,22 +170,68 @@ def parse_weather_data(weather_list, tz: str) -> pd.DataFrame:
         
     return weather_df
 
-def solve_solar(request):
-    """
-    gRPC entry point.
-    """
+def solve_solar_logic(request):
     location = parse_location(request.location)
     system = create_pv_system(request.system_config)
     weather_df = parse_weather_data(request.weather, location.tz)
+    battery = parse_battery(request.system_config.battery) if request.system_config.HasField('battery') else None
 
     mc = ModelChain(system, location, spectral_model='no_loss', aoi_model='no_loss')
     mc.run_model(weather_df)
 
-    return mc.results.ac
+    ac_output_w = mc.results.ac
+    ac_output_kw = ac_output_w / 1000.0
+    
+    # Ensure load_profile matches length
+    load_profile = list(request.load_profile_kw)
+    if not load_profile:
+        load_profile = [0.0] * len(ac_output_kw)
+    elif len(load_profile) < len(ac_output_kw):
+        # Repeat last value if too short
+        load_profile.extend([load_profile[-1]] * (len(ac_output_kw) - len(load_profile)))
+    
+    battery_soc = []
+    grid_import = []
+    grid_export = []
+    
+    for ac, load in zip(ac_output_kw, load_profile):
+        net_power = ac - load # Excess if positive, deficit if negative
+        
+        if battery:
+            battery_power = battery.step(net_power)
+            net_after_battery = net_power - battery_power
+            battery_soc.append(battery.current_soc_kwh)
+        else:
+            net_after_battery = net_power
+            battery_soc.append(0.0)
+            
+        if net_after_battery > 0:
+            grid_export.append(net_after_battery)
+            grid_import.append(0.0)
+        else:
+            grid_import.append(abs(net_after_battery))
+            grid_export.append(0.0)
+            
+    return ac_output_w, [str(ts) for ts in ac_output_w.index], battery_soc, grid_import, grid_export
+
+def solve_solar(request):
+    """
+    gRPC entry point.
+    """
+    ac_output, timestamps, battery_soc, grid_import, grid_export = solve_solar_logic(request)
+    
+    from solar_solver.pb import solar_pb2
+    return solar_pb2.SolarResponse(
+        ac_output=ac_output.tolist(),
+        timestamps=timestamps,
+        battery_soc_kwh=battery_soc,
+        grid_import_kw=grid_import,
+        grid_export_kw=grid_export
+    )
 
 def solve(panel: SolarPanel, inverter: SolarInverter, modules_per_string: int, strings: int, location: Location, weather_df: pd.DataFrame):
     """
-    Domain-specific solve function.
+    Domain-specific solve function (simple version without battery for now).
     """
     solar_array = SolarArray(
         panel=panel,

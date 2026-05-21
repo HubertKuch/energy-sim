@@ -83,7 +83,18 @@ func (s *simulationService) Solve(ctx context.Context, params SolveParams) (*Sim
 				VDcMax:    params.Inverter.VdcMax,
 			},
 		},
-		Weather: weatherData,
+		Weather:       weatherData,
+		LoadProfileKw: params.LoadProfileKw,
+	}
+
+	if params.Battery != nil {
+		solarReq.SystemConfig.Battery = &pb.SolarBattery{
+			CapacityKwh:   params.Battery.CapacityKwh,
+			MaxChargeKw:   params.Battery.MaxChargeKw,
+			MaxDischargeKw: params.Battery.MaxDischargeKw,
+			Efficiency:    params.Battery.Efficiency,
+			InitialSocKwh: params.Battery.InitialSocKwh,
+		}
 	}
 
 	res, err := s.client.Solve(ctx, solarReq)
@@ -92,8 +103,11 @@ func (s *simulationService) Solve(ctx context.Context, params SolveParams) (*Sim
 	}
 
 	return &SimulationResponse{
-		AcOutput:   res.AcOutput,
-		Timestamps: res.Timestamps,
+		AcOutput:       res.AcOutput,
+		Timestamps:     res.Timestamps,
+		BatterySocKwh:  res.BatterySocKwh,
+		GridImportKw:   res.GridImportKw,
+		GridExportKw:   res.GridExportKw,
 	}, nil
 }
 
@@ -138,7 +152,18 @@ func (s *simulationService) RunSimulation(ctx context.Context, req *SimulationRe
 				VDcMax:    req.SystemConfig.Inverter.VdcMax,
 			},
 		},
-		Weather: weatherData,
+		Weather:       weatherData,
+		LoadProfileKw: req.LoadProfileKw,
+	}
+
+	if req.SystemConfig.Battery != nil {
+		solarReq.SystemConfig.Battery = &pb.SolarBattery{
+			CapacityKwh:   req.SystemConfig.Battery.CapacityKwh,
+			MaxChargeKw:   req.SystemConfig.Battery.MaxChargeKw,
+			MaxDischargeKw: req.SystemConfig.Battery.MaxDischargeKw,
+			Efficiency:    req.SystemConfig.Battery.Efficiency,
+			InitialSocKwh: req.SystemConfig.Battery.InitialSocKwh,
+		}
 	}
 
 	res, err := s.client.Solve(ctx, solarReq)
@@ -147,8 +172,11 @@ func (s *simulationService) RunSimulation(ctx context.Context, req *SimulationRe
 	}
 
 	return &SimulationResponse{
-		AcOutput:   res.AcOutput,
-		Timestamps: res.Timestamps,
+		AcOutput:       res.AcOutput,
+		Timestamps:     res.Timestamps,
+		BatterySocKwh:  res.BatterySocKwh,
+		GridImportKw:   res.GridImportKw,
+		GridExportKw:   res.GridExportKw,
 	}, nil
 }
 

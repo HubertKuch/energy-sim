@@ -83,12 +83,14 @@ func (h *SimulationHandler) HandleSolve(w http.ResponseWriter, r *http.Request) 
 	res, err := h.service.Solve(ctx, SolveParams{
 		Panel:            req.Panel,
 		Inverter:         req.Inverter,
+		Battery:          req.Battery,
 		ModulesPerString: req.ModulesPerString,
 		Strings:          req.Strings,
 		Duration:         duration,
 		When:             when,
 		Temperature:      req.Temperature,
 		Location:         req.Location,
+		LoadProfileKw:    req.LoadProfileKw,
 	})
 	if err != nil {
 		log.Printf("Solve error: %v", err)

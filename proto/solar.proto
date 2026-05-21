@@ -33,17 +33,26 @@ message SolarInverter {
   double v_dc_max = 3;      // Max DC voltage [V]
 }
 
+message SolarBattery {
+  double capacity_kwh = 1;
+  double max_charge_kw = 2;
+  double max_discharge_kw = 3;
+  double efficiency = 4;        // Round-trip efficiency [decimal]
+  double initial_soc_kwh = 5;
+}
+
 message SolarArray {
   double surface_tilt = 1;
   double surface_azimuth = 2;
-  int32 modules_per_string = 3; // Vertical (series)
-  int32 strings = 4;            // Horizontal (parallel)
+  int32 modules_per_string = 3;
+  int32 strings = 4;
   SolarPanel panel = 5;
 }
 
 message SystemConfig {
   repeated SolarArray arrays = 1;
   SolarInverter inverter = 2;
+  SolarBattery battery = 3; // Optional
 }
 
 message WeatherData {
@@ -59,9 +68,13 @@ message SolarRequest {
   Location location = 1;
   SystemConfig system_config = 2;
   repeated WeatherData weather = 3;
+  repeated double load_profile_kw = 4; // Consumption in kW for each weather point
 }
 
 message SolarResponse {
   repeated double ac_output = 1;
   repeated string timestamps = 2;
+  repeated double battery_soc_kwh = 3;
+  repeated double grid_import_kw = 4;
+  repeated double grid_export_kw = 5;
 }
