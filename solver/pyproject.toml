@@ -15,3 +15,12 @@ dependencies = [
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+addopts = "--cov=solar_solver --cov-report=term-missing --cov-report=html"
+
+[tool.coverage.run]
+omit = ["*/pb/*"]
+
+[dependency-groups]
+dev = [
+    "pytest-cov>=7.1.0",
+]
