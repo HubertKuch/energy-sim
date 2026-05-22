@@ -229,7 +229,7 @@ def solve_solar(request):
         grid_export_kw=grid_export
     )
 
-def solve(panel: SolarPanel, inverter: SolarInverter, modules_per_string: int, strings: int, location: Location, weather_df: pd.DataFrame):
+def solve(panel: SolarPanel, inverter: SolarInverter, modules_per_string: int, strings: int, tilt: float, azimuth: float, location: Location, weather_df: pd.DataFrame):
     """
     Domain-specific solve function (simple version without battery for now).
     """
@@ -237,8 +237,8 @@ def solve(panel: SolarPanel, inverter: SolarInverter, modules_per_string: int, s
         panel=panel,
         modules_per_string=modules_per_string,
         strings=strings,
-        tilt=30,
-        azimuth=180
+        tilt=tilt,
+        azimuth=azimuth
     )
     
     system = PVSystem(

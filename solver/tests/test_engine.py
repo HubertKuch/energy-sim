@@ -72,7 +72,7 @@ def test_solve_basic(sample_panel, sample_inverter):
         'wind_speed': [2, 2]
     }, index=pd.to_datetime(['2026-06-21 12:00:00', '2026-06-21 23:00:00']).tz_localize('UTC'))
     
-    results = solve(sample_panel, sample_inverter, 10, 2, loc, weather)
+    results = solve(sample_panel, sample_inverter, 10, 2, 30, 180, loc, weather)
     
     assert len(results) == 2
     assert results.iloc[0] > 0

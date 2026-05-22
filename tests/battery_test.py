@@ -46,6 +46,8 @@ def test_battery_storage_logic(solar_system):
         },
         "modules_per_string": 10,
         "strings": 4, # ~12kWp system, should have excess during day
+        "surface_tilt": 30,
+        "surface_azimuth": 180,
         "duration": "24h",
         "when": "2026-06-21T00:00:00Z",
         "temperature": 25.0,

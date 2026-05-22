@@ -86,6 +86,8 @@ func (h *SimulationHandler) HandleSolve(w http.ResponseWriter, r *http.Request) 
 		Battery:          req.Battery,
 		ModulesPerString: req.ModulesPerString,
 		Strings:          req.Strings,
+		SurfaceTilt:      req.SurfaceTilt,
+		SurfaceAzimuth:   req.SurfaceAzimuth,
 		Duration:         duration,
 		When:             when,
 		Temperature:      req.Temperature,

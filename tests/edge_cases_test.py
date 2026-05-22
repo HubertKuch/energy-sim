@@ -41,6 +41,8 @@ def test_solve_night(solar_system):
         "inverter": {"pdc0": 5000, "eta_inv_nom": 0.96, "v_dc_max": 1000},
         "modules_per_string": 10,
         "strings": 2,
+        "surface_tilt": 30,
+        "surface_azimuth": 180,
         "duration": "1h",
         "when": "2026-06-21T00:00:00Z", # Midnight
         "temperature": 25.0,
@@ -58,6 +60,8 @@ def test_extreme_temperature(solar_system):
         "inverter": {"pdc0": 5000, "eta_inv_nom": 0.96, "v_dc_max": 1000},
         "modules_per_string": 10,
         "strings": 2,
+        "surface_tilt": 30,
+        "surface_azimuth": 180,
         "duration": "1h",
         "when": "2026-06-21T12:00:00Z",
         "temperature": 100.0, # Very hot

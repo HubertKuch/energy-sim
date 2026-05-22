@@ -60,8 +60,8 @@ func (s *simulationService) Solve(ctx context.Context, params SolveParams) (*Sim
 		SystemConfig: &pb.SystemConfig{
 			Arrays: []*pb.SolarArray{
 				{
-					SurfaceTilt:      30,
-					SurfaceAzimuth:   180,
+					SurfaceTilt:      params.SurfaceTilt,
+					SurfaceAzimuth:   params.SurfaceAzimuth,
 					ModulesPerString: params.ModulesPerString,
 					Strings:          params.Strings,
 					Panel: &pb.SolarPanel{
