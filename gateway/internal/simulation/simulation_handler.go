@@ -1,4 +1,4 @@
-package main
+package simulation
 
 import (
 	"context"
@@ -81,18 +81,14 @@ func (h *SimulationHandler) HandleSolve(w http.ResponseWriter, r *http.Request) 
 	defer cancel()
 
 	res, err := h.service.Solve(ctx, SolveParams{
-		Panel:            req.Panel,
-		Inverter:         req.Inverter,
-		Battery:          req.Battery,
-		ModulesPerString: req.ModulesPerString,
-		Strings:          req.Strings,
-		SurfaceTilt:      req.SurfaceTilt,
-		SurfaceAzimuth:   req.SurfaceAzimuth,
-		Duration:         duration,
-		When:             when,
-		Temperature:      req.Temperature,
-		Location:         req.Location,
-		LoadProfileKw:    req.LoadProfileKw,
+		Arrays:        req.Arrays,
+		Inverter:      req.Inverter,
+		Battery:       req.Battery,
+		Duration:      duration,
+		When:          when,
+		Temperature:   req.Temperature,
+		Location:      req.Location,
+		LoadProfileKw: req.LoadProfileKw,
 	})
 	if err != nil {
 		log.Printf("Solve error: %v", err)

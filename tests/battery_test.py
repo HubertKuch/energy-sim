@@ -35,7 +35,15 @@ def test_battery_storage_logic(solar_system):
     load_profile = [2.0] * 24
     
     payload = {
-        "panel": {"pdc0": 300, "v_mp": 30, "i_mp": 10, "v_oc": 37, "i_sc": 11, "gamma_pdc": -0.004, "alpha_sc": 0.005, "beta_voc": -0.11, "cells_in_series": 60},
+        "arrays": [
+            {
+                "surface_tilt": 30,
+                "surface_azimuth": 180,
+                "modules_per_string": 10,
+                "strings": 4,
+                "panel": {"pdc0": 300, "v_mp": 30, "i_mp": 10, "v_oc": 37, "i_sc": 11, "gamma_pdc": -0.004, "alpha_sc": 0.005, "beta_voc": -0.11, "cells_in_series": 60}
+            }
+        ],
         "inverter": {"pdc0": 5000, "eta_inv_nom": 0.96, "v_dc_max": 1000},
         "battery": {
             "capacity_kwh": 10.0,
@@ -44,10 +52,6 @@ def test_battery_storage_logic(solar_system):
             "efficiency": 0.95,
             "initial_soc_kwh": 5.0
         },
-        "modules_per_string": 10,
-        "strings": 4, # ~12kWp system, should have excess during day
-        "surface_tilt": 30,
-        "surface_azimuth": 180,
         "duration": "24h",
         "when": "2026-06-21T00:00:00Z",
         "temperature": 25.0,

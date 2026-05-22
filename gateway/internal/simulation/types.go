@@ -1,4 +1,4 @@
-package main
+package simulation
 
 import (
 	"time"
@@ -62,32 +62,24 @@ type SimulationResponse struct {
 }
 
 type SolveRequest struct {
-	Panel            *SolarPanel    `json:"panel"`
-	Inverter         *SolarInverter `json:"inverter"`
-	Battery          *SolarBattery  `json:"battery"`
-	ModulesPerString int32          `json:"modules_per_string"`
-	Strings          int32          `json:"strings"`
-	SurfaceTilt      float64        `json:"surface_tilt"`
-	SurfaceAzimuth   float64        `json:"surface_azimuth"`
-	Duration         string         `json:"duration"` // e.g. "24h"
-	When             string         `json:"when"`     // e.g. "2026-06-21T00:00:00Z"
-	Temperature      float64        `json:"temperature"`
-	Location         *pb.Location   `json:"location"`
-	LoadProfileKw    []float64      `json:"load_profile_kw"`
+	Arrays        []SolarArray   `json:"arrays"`
+	Inverter      *SolarInverter `json:"inverter"`
+	Battery       *SolarBattery  `json:"battery"`
+	Duration      string         `json:"duration"` // e.g. "24h"
+	When          string         `json:"when"`     // e.g. "2026-06-21T00:00:00Z"
+	Temperature   float64        `json:"temperature"`
+	Location      *pb.Location   `json:"location"`
+	LoadProfileKw []float64      `json:"load_profile_kw"`
 }
 
 // Internal representation for the Solve call
 type SolveParams struct {
-	Panel            *SolarPanel
-	Inverter         *SolarInverter
-	Battery          *SolarBattery
-	ModulesPerString int32
-	Strings          int32
-	SurfaceTilt      float64
-	SurfaceAzimuth   float64
-	Duration         time.Duration
-	When             time.Time
-	Temperature      float64
-	Location         *pb.Location
-	LoadProfileKw    []float64
+	Arrays        []SolarArray
+	Inverter      *SolarInverter
+	Battery       *SolarBattery
+	Duration      time.Duration
+	When          time.Time
+	Temperature   float64
+	Location      *pb.Location
+	LoadProfileKw []float64
 }

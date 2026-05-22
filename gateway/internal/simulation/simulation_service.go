@@ -1,4 +1,4 @@
-package main
+package simulation
 
 import (
 	"context"
@@ -55,28 +55,32 @@ func (s *simulationService) Solve(ctx context.Context, params SolveParams) (*Sim
 		})
 	}
 
+	// Map internal types to protobuf
+	var pbArrays []*pb.SolarArray
+	for _, arr := range params.Arrays {
+		pbArrays = append(pbArrays, &pb.SolarArray{
+			SurfaceTilt:      arr.SurfaceTilt,
+			SurfaceAzimuth:   arr.SurfaceAzimuth,
+			ModulesPerString: arr.ModulesPerString,
+			Strings:          arr.Strings,
+			Panel: &pb.SolarPanel{
+				Pdc0:          arr.Panel.Pdc0,
+				VMp:           arr.Panel.Vmp,
+				IMp:           arr.Panel.Imp,
+				VOc:           arr.Panel.Voc,
+				ISc:           arr.Panel.Isc,
+				GammaPdc:      arr.Panel.GammaPdc,
+				AlphaSc:       arr.Panel.AlphaSc,
+				BetaVoc:       arr.Panel.BetaVoc,
+				CellsInSeries: arr.Panel.CellsInSeries,
+			},
+		})
+	}
+
 	solarReq := &pb.SolarRequest{
 		Location: params.Location,
 		SystemConfig: &pb.SystemConfig{
-			Arrays: []*pb.SolarArray{
-				{
-					SurfaceTilt:      params.SurfaceTilt,
-					SurfaceAzimuth:   params.SurfaceAzimuth,
-					ModulesPerString: params.ModulesPerString,
-					Strings:          params.Strings,
-					Panel: &pb.SolarPanel{
-						Pdc0:          params.Panel.Pdc0,
-						VMp:           params.Panel.Vmp,
-						IMp:           params.Panel.Imp,
-						VOc:           params.Panel.Voc,
-						ISc:           params.Panel.Isc,
-						GammaPdc:      params.Panel.GammaPdc,
-						AlphaSc:       params.Panel.AlphaSc,
-						BetaVoc:       params.Panel.BetaVoc,
-						CellsInSeries: params.Panel.CellsInSeries,
-					},
-				},
-			},
+			Arrays: pbArrays,
 			Inverter: &pb.SolarInverter{
 				Pdc0:      params.Inverter.Pdc0,
 				EtaInvNom: params.Inverter.EtaInvNom,
@@ -89,11 +93,11 @@ func (s *simulationService) Solve(ctx context.Context, params SolveParams) (*Sim
 
 	if params.Battery != nil {
 		solarReq.SystemConfig.Battery = &pb.SolarBattery{
-			CapacityKwh:   params.Battery.CapacityKwh,
-			MaxChargeKw:   params.Battery.MaxChargeKw,
+			CapacityKwh:    params.Battery.CapacityKwh,
+			MaxChargeKw:    params.Battery.MaxChargeKw,
 			MaxDischargeKw: params.Battery.MaxDischargeKw,
-			Efficiency:    params.Battery.Efficiency,
-			InitialSocKwh: params.Battery.InitialSocKwh,
+			Efficiency:     params.Battery.Efficiency,
+			InitialSocKwh:  params.Battery.InitialSocKwh,
 		}
 	}
 

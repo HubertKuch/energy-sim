@@ -37,12 +37,16 @@ def test_invalid_date(solar_system):
 def test_solve_night(solar_system):
     url = f"{solar_system}/api/solve"
     payload = {
-        "panel": {"pdc0": 300, "v_mp": 30, "i_mp": 10, "v_oc": 37, "i_sc": 11, "gamma_pdc": -0.004, "alpha_sc": 0.005, "beta_voc": -0.11, "cells_in_series": 60},
+        "arrays": [
+            {
+                "surface_tilt": 30,
+                "surface_azimuth": 180,
+                "modules_per_string": 10,
+                "strings": 2,
+                "panel": {"pdc0": 300, "v_mp": 30, "i_mp": 10, "v_oc": 37, "i_sc": 11, "gamma_pdc": -0.004, "alpha_sc": 0.005, "beta_voc": -0.11, "cells_in_series": 60}
+            }
+        ],
         "inverter": {"pdc0": 5000, "eta_inv_nom": 0.96, "v_dc_max": 1000},
-        "modules_per_string": 10,
-        "strings": 2,
-        "surface_tilt": 30,
-        "surface_azimuth": 180,
         "duration": "1h",
         "when": "2026-06-21T00:00:00Z", # Midnight
         "temperature": 25.0,
@@ -56,12 +60,16 @@ def test_solve_night(solar_system):
 def test_extreme_temperature(solar_system):
     url = f"{solar_system}/api/solve"
     payload = {
-        "panel": {"pdc0": 300, "v_mp": 30, "i_mp": 10, "v_oc": 37, "i_sc": 11, "gamma_pdc": -0.004, "alpha_sc": 0.005, "beta_voc": -0.11, "cells_in_series": 60},
+        "arrays": [
+            {
+                "surface_tilt": 30,
+                "surface_azimuth": 180,
+                "modules_per_string": 10,
+                "strings": 2,
+                "panel": {"pdc0": 300, "v_mp": 30, "i_mp": 10, "v_oc": 37, "i_sc": 11, "gamma_pdc": -0.004, "alpha_sc": 0.005, "beta_voc": -0.11, "cells_in_series": 60}
+            }
+        ],
         "inverter": {"pdc0": 5000, "eta_inv_nom": 0.96, "v_dc_max": 1000},
-        "modules_per_string": 10,
-        "strings": 2,
-        "surface_tilt": 30,
-        "surface_azimuth": 180,
         "duration": "1h",
         "when": "2026-06-21T12:00:00Z",
         "temperature": 100.0, # Very hot

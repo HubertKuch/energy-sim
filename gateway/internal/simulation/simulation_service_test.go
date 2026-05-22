@@ -1,4 +1,4 @@
-package main
+package simulation
 
 import (
 	"context"
@@ -65,14 +65,17 @@ func TestSolve(t *testing.T) {
 	service := NewSimulationService(mockClient)
 
 	params := SolveParams{
-		Panel:            &SolarPanel{Pdc0: 300},
-		Inverter:         &SolarInverter{Pdc0: 5000},
-		ModulesPerString: 10,
-		Strings:          2,
-		Duration:         2 * time.Hour,
-		When:             time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC),
-		Temperature:      25.0,
-		Location:         &pb.Location{Latitude: 52.2},
+		Arrays: []SolarArray{
+			{
+				SurfaceTilt: 30, SurfaceAzimuth: 180, ModulesPerString: 10, Strings: 2,
+				Panel: &SolarPanel{Pdc0: 300},
+			},
+		},
+		Inverter:    &SolarInverter{Pdc0: 5000},
+		Duration:    2 * time.Hour,
+		When:        time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC),
+		Temperature: 25.0,
+		Location:    &pb.Location{Latitude: 52.2},
 	}
 
 	res, err := service.Solve(context.Background(), params)
