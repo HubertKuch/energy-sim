@@ -16,6 +16,7 @@ This project is a high-fidelity solar energy simulation engine that combines a G
 - **SolarArray Modeling**: Supports 2D layouts (horizontal strings and vertical modules in series).
 - **Physical Parameters**: Factors in Location (GPS), Surface Tilt, Azimuth, and Temperature coefficients.
 - **BESS (Battery Energy Storage System)**: Simulates self-consumption, battery logic (charge/discharge limits, efficiency), and grid interactions.
+- **Snow Simulation**: Heuristic model accounting for accumulation and shedding (sliding) based on tilt, temperature, and irradiance.
 - **Load Profile support**: Simulates real-world consumption patterns to calculate net grid impact.
 
 ## Development Workflows

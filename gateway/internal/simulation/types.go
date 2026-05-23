@@ -37,6 +37,7 @@ type SimulationRequest struct {
 	SystemConfig  *SystemConfig `json:"system_config"`
 	Date          string        `json:"date"` // Format: YYYY-MM-DD
 	LoadProfileKw []float64     `json:"load_profile_kw"`
+	SnowDepthCm   float64       `json:"snow_depth_cm"`
 }
 
 type SystemConfig struct {
@@ -68,6 +69,7 @@ type SolveRequest struct {
 	Duration      string         `json:"duration"` // e.g. "24h"
 	When          string         `json:"when"`     // e.g. "2026-06-21T00:00:00Z"
 	Temperature   float64        `json:"temperature"`
+	SnowDepthCm   float64        `json:"snow_depth_cm"`
 	Location      *pb.Location   `json:"location"`
 	LoadProfileKw []float64      `json:"load_profile_kw"`
 }
@@ -80,6 +82,7 @@ type SolveParams struct {
 	Duration      time.Duration
 	When          time.Time
 	Temperature   float64
+	SnowDepthCm   float64
 	Location      *pb.Location
 	LoadProfileKw []float64
 }

@@ -62,6 +62,7 @@ message WeatherData {
   double dhi = 4;
   double temp_air = 5;
   double wind_speed = 6;
+  double snow_depth_cm = 7;
 }
 
 message SolarRequest {

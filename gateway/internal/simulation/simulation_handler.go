@@ -87,6 +87,7 @@ func (h *SimulationHandler) HandleSolve(w http.ResponseWriter, r *http.Request) 
 		Duration:      duration,
 		When:          when,
 		Temperature:   req.Temperature,
+		SnowDepthCm:   req.SnowDepthCm,
 		Location:      req.Location,
 		LoadProfileKw: req.LoadProfileKw,
 	})

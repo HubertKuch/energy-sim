@@ -46,12 +46,13 @@ func (s *simulationService) Solve(ctx context.Context, params SolveParams) (*Sim
 		}
 
 		weatherData = append(weatherData, &pb.WeatherData{
-			Timestamp: ts.Format("2006-01-02 15:04:05"),
-			Ghi:       ghi,
-			Dni:       ghi * 0.8,
-			Dhi:       ghi * 0.2,
-			TempAir:   params.Temperature,
-			WindSpeed: 2,
+			Timestamp:   ts.Format("2006-01-02 15:04:05"),
+			Ghi:         ghi,
+			Dni:         ghi * 0.8,
+			Dhi:         ghi * 0.2,
+			TempAir:     params.Temperature,
+			WindSpeed:   2,
+			SnowDepthCm: params.SnowDepthCm,
 		})
 	}
 
@@ -122,7 +123,7 @@ func (s *simulationService) RunSimulation(ctx context.Context, req *SimulationRe
 		return nil, fmt.Errorf("invalid date format: %w", err)
 	}
 
-	weatherData := s.generateHourlyWeatherData(date)
+	weatherData := s.generateHourlyWeatherData(date, req.SnowDepthCm)
 
 	// Map internal types to protobuf
 	var pbArrays []*pb.SolarArray
@@ -184,7 +185,7 @@ func (s *simulationService) RunSimulation(ctx context.Context, req *SimulationRe
 	}, nil
 }
 
-func (s *simulationService) generateHourlyWeatherData(date time.Time) []*pb.WeatherData {
+func (s *simulationService) generateHourlyWeatherData(date time.Time, snowDepthCm float64) []*pb.WeatherData {
 	var weatherData []*pb.WeatherData
 	for h := 0; h < 24; h++ {
 		ts := time.Date(date.Year(), date.Month(), date.Day(), h, 0, 0, 0, date.Location())
@@ -196,12 +197,13 @@ func (s *simulationService) generateHourlyWeatherData(date time.Time) []*pb.Weat
 		}
 
 		weatherData = append(weatherData, &pb.WeatherData{
-			Timestamp: ts.Format("2006-01-02 15:04:05"),
-			Ghi:       ghi,
-			Dni:       ghi * 0.8,
-			Dhi:       ghi * 0.2,
-			TempAir:   20,
-			WindSpeed: 2,
+			Timestamp:   ts.Format("2006-01-02 15:04:05"),
+			Ghi:         ghi,
+			Dni:         ghi * 0.8,
+			Dhi:         ghi * 0.2,
+			TempAir:     20,
+			WindSpeed:   2,
+			SnowDepthCm: snowDepthCm,
 		})
 	}
 	return weatherData
