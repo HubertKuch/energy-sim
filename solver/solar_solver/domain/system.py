@@ -1,59 +1,96 @@
 import pandas as pd
+import numpy as np
 from pvlib.modelchain import ModelChain
-from pvlib.location import Location
-from pvlib.pvsystem import PVSystem
 from .battery import SolarBattery
 from .inverter import SolarInverter
 from .array import SolarArray
+from .location import Location
+from .context import SimulationContext
+from ..modifiers.group import ModifierGroup
+from ..modifiers.snow import SnowModifier
+from ..modifiers.temperature import TemperatureModifier
+from ..modifiers.wind import WindModifier
+from ..modifiers.orientation import OrientationModifier
 
 class SolarSystem:
     def __init__(self, arrays: list[SolarArray], inverter: SolarInverter, battery: SolarBattery = None):
         self.arrays = arrays
         self.inverter = inverter
         self.battery = battery
+        
+        # Default modifiers
+        self.modifiers = ModifierGroup([
+            OrientationModifier(),
+            TemperatureModifier(),
+            WindModifier(),
+            SnowModifier()
+        ])
 
     def simulate(self, location: Location, weather_df: pd.DataFrame, load_profile: list[float] = None):
-        from .snow import SnowModel
+        # We need to calculate DC power per array to apply modifiers per array
+        total_ac_kw = pd.Series(0.0, index=weather_df.index)
+        
+        # Inverter efficiency (simple for now, as we focus on DC modifiers)
+        inv_eta = self.inverter.eta_inv_nom
 
-        pv_system = PVSystem(
-            arrays=[a.to_pvlib_array() for a in self.arrays],
-            inverter_parameters=self.inverter.to_pvlib_dict()
-        )
-        
-        mc = ModelChain(pv_system, location, spectral_model='no_loss', aoi_model='no_loss')
-        mc.run_model(weather_df)
+        for array in self.arrays:
+            # 1. Get raw DC power from pvlib for this specific array
+            from pvlib.pvsystem import PVSystem as LibPVSystem
+            temp_sys = LibPVSystem(
+                arrays=[array.to_pvlib_array()],
+                inverter_parameters=self.inverter.to_pvlib_dict()
+            )
+            # Use fixed efficiency AC model to avoid parameter inference issues
+            mc = ModelChain(
+                temp_sys, 
+                location, 
+                spectral_model='no_loss', 
+                aoi_model='no_loss',
+                ac_model='pvwatts'
+            )
+            mc.run_model(weather_df)
+            
+            # Use total DC power (sum of all arrays in temp_sys, which is just one)
+            raw_dc = mc.results.dc
+            if isinstance(raw_dc, pd.DataFrame):
+                # If multiple arrays were present, mc.results.dc would be a DF.
+                # Here we have one array, but pvlib might return a DF with one column.
+                raw_dc = raw_dc.sum(axis=1)
 
-        ac_output_w = mc.results.ac
-        ac_output_kw = ac_output_w / 1000.0
-        
-        # Calculate average tilt for snow loss heuristic
-        avg_tilt = sum(a.tilt for a in self.arrays) / len(self.arrays) if self.arrays else 0
-        
+            array_ac_kw = []
+            
+            # 2. Apply modifiers per timestamp
+            for i in range(len(weather_df)):
+                ctx = SimulationContext(
+                    weather=weather_df.iloc[i],
+                    array=array,
+                    location=location,
+                    raw_dc_power=raw_dc.iloc[i],
+                    dc_power=raw_dc.iloc[i],
+                    loss_factors={}
+                )
+                
+                # Apply modifier pipeline
+                ctx = self.modifiers.apply(ctx)
+                
+                # Convert DC to AC (kW)
+                ac_kw = (ctx.dc_power * inv_eta) / 1000.0
+                array_ac_kw.append(ac_kw)
+            
+            total_ac_kw += pd.Series(array_ac_kw, index=weather_df.index)
+
+        # 3. Handle Battery and Load Profile (System level)
         if not load_profile:
-            load_profile = [0.0] * len(ac_output_kw)
-        elif len(load_profile) < len(ac_output_kw):
-            load_profile.extend([load_profile[-1]] * (len(ac_output_kw) - len(load_profile)))
+            load_profile = [0.0] * len(total_ac_kw)
+        elif len(load_profile) < len(total_ac_kw):
+            load_profile.extend([load_profile[-1]] * (len(total_ac_kw) - len(load_profile)))
         
         battery_soc = []
         grid_import = []
         grid_export = []
         
-        # Final adjusted AC output (after losses)
-        adjusted_ac_w = []
-        
-        for i, (ac, load) in enumerate(zip(ac_output_kw, load_profile)):
-            # Apply Snow Loss
-            w = weather_df.iloc[i]
-            snow_coverage = SnowModel.calculate_coverage_fraction(
-                snow_depth=w.get('snow_depth', 0),
-                tilt=avg_tilt,
-                temp_air=w.temp_air,
-                ghi=w.ghi
-            )
-            ac_after_snow = ac * (1.0 - snow_coverage)
-            adjusted_ac_w.append(ac_after_snow * 1000.0)
-
-            net_power = ac_after_snow - load
+        for ac, load in zip(total_ac_kw, load_profile):
+            net_power = ac - load
             
             if self.battery:
                 battery_power = self.battery.step(net_power)
@@ -70,7 +107,4 @@ class SolarSystem:
                 grid_import.append(abs(net_after_battery))
                 grid_export.append(0.0)
                 
-        # Return adjusted AC output series
-        import pandas as pd
-        final_ac_series = pd.Series(adjusted_ac_w, index=ac_output_w.index)
-        return final_ac_series, battery_soc, grid_import, grid_export
+        return total_ac_kw * 1000.0, battery_soc, grid_import, grid_export

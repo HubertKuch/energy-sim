@@ -1,4 +1,4 @@
-from pvlib.location import Location
+from ..domain.location import Location
 
 def parse_location(request_location) -> Location:
     return Location(
