@@ -22,5 +22,15 @@ omit = ["*/pb/*"]
 
 [dependency-groups]
 dev = [
+    "bandit>=1.9.4",
+    "basedpyright>=1.39.6",
+    "lizard>=1.22.1",
+    "mutmut>=3.5.0",
+    "mypy>=2.1.0",
+    "pylint>=4.0.5",
     "pytest-cov>=7.1.0",
+    "radon>=6.0.1",
+    "ruff>=0.15.14",
+    "vulture>=2.16",
+    "wily>=1.12.2",
 ]

@@ -27,66 +27,58 @@ class SolarSystem:
         ])
 
     def simulate(self, location: Location, weather_df: pd.DataFrame, load_profile: list[float] = None):
-        # We need to calculate DC power per array to apply modifiers per array
         total_ac_kw = pd.Series(0.0, index=weather_df.index)
         
-        # Inverter efficiency (simple for now, as we focus on DC modifiers)
-        inv_eta = self.inverter.eta_inv_nom
-
         for array in self.arrays:
-            # 1. Get raw DC power from pvlib for this specific array
-            from pvlib.pvsystem import PVSystem as LibPVSystem
-            temp_sys = LibPVSystem(
-                arrays=[array.to_pvlib_array()],
-                inverter_parameters=self.inverter.to_pvlib_dict()
-            )
-            # Use fixed efficiency AC model to avoid parameter inference issues
-            mc = ModelChain(
-                temp_sys, 
-                location, 
-                spectral_model='no_loss', 
-                aoi_model='no_loss',
-                ac_model='pvwatts'
-            )
-            mc.run_model(weather_df)
-            
-            # Use total DC power (sum of all arrays in temp_sys, which is just one)
-            raw_dc = mc.results.dc
-            if isinstance(raw_dc, pd.DataFrame):
-                # If multiple arrays were present, mc.results.dc would be a DF.
-                # Here we have one array, but pvlib might return a DF with one column.
-                raw_dc = raw_dc.sum(axis=1)
+            total_ac_kw += self._simulate_array(array, location, weather_df)
 
-            array_ac_kw = []
-            
-            # 2. Apply modifiers per timestamp
-            for i in range(len(weather_df)):
-                ctx = SimulationContext(
-                    weather=weather_df.iloc[i],
-                    array=array,
-                    location=location,
-                    raw_dc_power=raw_dc.iloc[i],
-                    dc_power=raw_dc.iloc[i],
-                    loss_factors={}
-                )
-                
-                # Apply modifier pipeline
-                ctx = self.modifiers.apply(ctx)
-                
-                # Convert DC to AC (W) using the inverter model
-                ac_w = self.inverter.calculate_ac(ctx.dc_power)
-                
-                # Convert to kW for the results series
-                array_ac_kw.append(ac_w / 1000.0)
-            
-            total_ac_kw += pd.Series(array_ac_kw, index=weather_df.index)
-
-        # 3. Handle Battery and Load Profile (System level)
-        if not load_profile:
-            load_profile = [0.0] * len(total_ac_kw)
-        elif len(load_profile) < len(total_ac_kw):
-            load_profile.extend([load_profile[-1]] * (len(total_ac_kw) - len(load_profile)))
+        load_profile = self._prepare_load_profile(load_profile, len(total_ac_kw))
         
+        return self._process_battery_and_grid(total_ac_kw, load_profile)
+
+    def _simulate_array(self, array: SolarArray, location: Location, weather_df: pd.DataFrame) -> pd.Series:
+        from pvlib.pvsystem import PVSystem as LibPVSystem
+        temp_sys = LibPVSystem(
+            arrays=[array.to_pvlib_array()],
+            inverter_parameters=self.inverter.to_pvlib_dict()
+        )
+        mc = ModelChain(
+            temp_sys, 
+            location, 
+            spectral_model='no_loss', 
+            aoi_model='no_loss',
+            ac_model='pvwatts'
+        )
+        mc.run_model(weather_df)
+        
+        raw_dc = mc.results.dc
+        if isinstance(raw_dc, pd.DataFrame):
+            raw_dc = raw_dc.sum(axis=1)
+
+        array_ac_kw = []
+        for i in range(len(weather_df)):
+            ctx = SimulationContext(
+                weather=weather_df.iloc[i],
+                array=array,
+                location=location,
+                raw_dc_power=raw_dc.iloc[i],
+                dc_power=raw_dc.iloc[i],
+                loss_factors={}
+            )
+            ctx = self.modifiers.apply(ctx)
+            ac_w = self.inverter.calculate_ac(ctx.dc_power)
+            array_ac_kw.append(ac_w / 1000.0)
+        
+        return pd.Series(array_ac_kw, index=weather_df.index)
+
+    def _prepare_load_profile(self, load_profile: list[float], length: int) -> list[float]:
+        if not load_profile:
+            return [0.0] * length
+        if len(load_profile) < length:
+            return load_profile + [load_profile[-1]] * (length - len(load_profile))
+        return load_profile[:length]
+
+    def _process_battery_and_grid(self, total_ac_kw: pd.Series, load_profile: list[float]):
         battery_soc = []
         grid_import = []
         grid_export = []
