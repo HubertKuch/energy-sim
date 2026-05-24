@@ -73,9 +73,11 @@ class SolarSystem:
                 # Apply modifier pipeline
                 ctx = self.modifiers.apply(ctx)
                 
-                # Convert DC to AC (kW)
-                ac_kw = (ctx.dc_power * inv_eta) / 1000.0
-                array_ac_kw.append(ac_kw)
+                # Convert DC to AC (W) using the inverter model
+                ac_w = self.inverter.calculate_ac(ctx.dc_power)
+                
+                # Convert to kW for the results series
+                array_ac_kw.append(ac_w / 1000.0)
             
             total_ac_kw += pd.Series(array_ac_kw, index=weather_df.index)
 
