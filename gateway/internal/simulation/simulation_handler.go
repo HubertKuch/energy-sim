@@ -80,7 +80,7 @@ func (h *SimulationHandler) HandleSolve(w http.ResponseWriter, r *http.Request) 
 	ctx, cancel := context.WithTimeout(r.Context(), time.Second*30)
 	defer cancel()
 
-	res, err := h.service.Solve(ctx, SolveParams{
+	params := SolveParams{
 		Arrays:        req.Arrays,
 		Inverter:      req.Inverter,
 		Battery:       req.Battery,
@@ -90,7 +90,16 @@ func (h *SimulationHandler) HandleSolve(w http.ResponseWriter, r *http.Request) 
 		SnowDepthCm:   req.SnowDepthCm,
 		Location:      req.Location,
 		LoadProfileKw: req.LoadProfileKw,
-	})
+	}
+
+	weatherData, err := h.service.GetWeather(ctx, params)
+	if err != nil {
+		log.Printf("Weather error: %v", err)
+		http.Error(w, "Failed to prepare weather data", http.StatusInternalServerError)
+		return
+	}
+
+	res, err := h.service.Solve(ctx, params, weatherData)
 	if err != nil {
 		log.Printf("Solve error: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)

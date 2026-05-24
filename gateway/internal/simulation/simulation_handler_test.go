@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	pb "github.com/hubertkuch/solar/gateway/pb"
 )
 
 type mockSimulationService struct {
@@ -20,12 +22,16 @@ func (m *mockSimulationService) RunSimulation(ctx context.Context, req *Simulati
 	}, nil
 }
 
-func (m *mockSimulationService) Solve(ctx context.Context, params SolveParams) (*SimulationResponse, error) {
+func (m *mockSimulationService) Solve(ctx context.Context, params SolveParams, weatherData []*pb.WeatherData) (*SimulationResponse, error) {
 	m.lastParams = params
 	return &SimulationResponse{
 		AcOutput:   []float64{5.6},
 		Timestamps: []string{"T3"},
 	}, nil
+}
+
+func (m *mockSimulationService) GetWeather(ctx context.Context, params SolveParams) ([]*pb.WeatherData, error) {
+	return []*pb.WeatherData{{Timestamp: "T3"}}, nil
 }
 
 func TestHandleSimulation(t *testing.T) {

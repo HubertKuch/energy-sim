@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/hubertkuch/solar/gateway/internal/simulation"
+	"github.com/hubertkuch/solar/gateway/internal/weather"
 	pb "github.com/hubertkuch/solar/gateway/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -20,7 +21,8 @@ func main() {
 	grpcClient := pb.NewSolarSolverClient(conn)
 
 	// Dependency Injection
-	simService := simulation.NewSimulationService(grpcClient)
+	weatherProvider := weather.NewOpenMeteoProvider()
+	simService := simulation.NewSimulationService(grpcClient, weatherProvider)
 	simHandler := simulation.NewSimulationHandler(simService)
 
 	mux := http.NewServeMux()

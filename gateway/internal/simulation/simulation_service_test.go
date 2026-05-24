@@ -24,7 +24,7 @@ func (m *mockSolarSolverClient) Solve(ctx context.Context, in *pb.SolarRequest, 
 
 func TestSimulationService_RunSimulation(t *testing.T) {
 	mockClient := &mockSolarSolverClient{}
-	service := NewSimulationService(mockClient)
+	service := NewSimulationService(mockClient, nil)
 
 	req := &SimulationRequest{
 		Date: "2026-06-21",
@@ -62,7 +62,7 @@ func TestSimulationService_RunSimulation(t *testing.T) {
 
 func TestSolve(t *testing.T) {
 	mockClient := &mockSolarSolverClient{}
-	service := NewSimulationService(mockClient)
+	service := NewSimulationService(mockClient, nil)
 
 	params := SolveParams{
 		Arrays: []SolarArray{
@@ -78,7 +78,12 @@ func TestSolve(t *testing.T) {
 		Location:    &pb.Location{Latitude: 52.2},
 	}
 
-	res, err := service.Solve(context.Background(), params)
+	weather, err := service.GetWeather(context.Background(), params)
+	if err != nil {
+		t.Fatalf("Expected no error fetching weather, got %v", err)
+	}
+
+	res, err := service.Solve(context.Background(), params, weather)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
