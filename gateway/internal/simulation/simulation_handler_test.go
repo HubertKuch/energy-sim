@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	pb "github.com/hubertkuch/solar/gateway/pb"
@@ -35,8 +37,9 @@ func (m *mockSimulationService) GetWeather(ctx context.Context, params SolvePara
 }
 
 func TestHandleSimulation(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	service := &mockSimulationService{}
-	handler := NewSimulationHandler(service)
+	handler := NewSimulationHandler(service, logger)
 
 	reqBody, _ := json.Marshal(SimulationRequest{
 		Date: "2026-06-21",
@@ -58,8 +61,9 @@ func TestHandleSimulation(t *testing.T) {
 }
 
 func TestHandleSolve(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	service := &mockSimulationService{}
-	handler := NewSimulationHandler(service)
+	handler := NewSimulationHandler(service, logger)
 
 	reqBody, _ := json.Marshal(SolveRequest{
 		Duration: "10h",

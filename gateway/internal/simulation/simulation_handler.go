@@ -3,7 +3,7 @@ package simulation
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -11,26 +11,38 @@ import (
 // SimulationHandler handles HTTP requests related to simulations.
 type SimulationHandler struct {
 	service SimulationService
+	logger  *slog.Logger
 }
 
 // NewSimulationHandler creates a new SimulationHandler.
-func NewSimulationHandler(service SimulationService) *SimulationHandler {
+func NewSimulationHandler(service SimulationService, logger *slog.Logger) *SimulationHandler {
 	return &SimulationHandler{
 		service: service,
+		logger:  logger,
 	}
+}
+
+type errorResponse struct {
+	Error string `json:"error"`
+}
+
+func (h *SimulationHandler) sendError(w http.ResponseWriter, message string, code int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(errorResponse{Error: message})
 }
 
 // HandleSimulation handles the POST /api/simulation request.
 func (h *SimulationHandler) HandleSimulation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		h.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	var req SimulationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("Decode error: %v", err)
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		h.logger.Warn("Failed to decode request body", "error", err)
+		h.sendError(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
@@ -39,41 +51,40 @@ func (h *SimulationHandler) HandleSimulation(w http.ResponseWriter, r *http.Requ
 
 	res, err := h.service.RunSimulation(ctx, &req)
 	if err != nil {
-		log.Printf("Simulation error: %v", err)
-		// Simple error check for validation failures
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		h.logger.Error("Simulation failed", "error", err)
+		h.sendError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(res); err != nil {
-		log.Printf("Encode error: %v", err)
+		h.logger.Error("Failed to encode response", "error", err)
 	}
 }
 
 // HandleSolve handles the POST /api/solve request.
 func (h *SimulationHandler) HandleSolve(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		h.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	var req SolveRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("Decode error: %v", err)
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		h.logger.Warn("Failed to decode solve request body", "error", err)
+		h.sendError(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	duration, err := time.ParseDuration(req.Duration)
 	if err != nil {
-		http.Error(w, "Invalid duration", http.StatusBadRequest)
+		h.sendError(w, "Invalid duration", http.StatusBadRequest)
 		return
 	}
 
 	when, err := time.Parse(time.RFC3339, req.When)
 	if err != nil {
-		http.Error(w, "Invalid timestamp (RFC3339)", http.StatusBadRequest)
+		h.sendError(w, "Invalid timestamp (RFC3339)", http.StatusBadRequest)
 		return
 	}
 
@@ -94,20 +105,21 @@ func (h *SimulationHandler) HandleSolve(w http.ResponseWriter, r *http.Request) 
 
 	weatherData, err := h.service.GetWeather(ctx, params)
 	if err != nil {
-		log.Printf("Weather error: %v", err)
-		http.Error(w, "Failed to prepare weather data", http.StatusInternalServerError)
+		h.logger.Error("Failed to prepare weather data", "error", err)
+		h.sendError(w, "Failed to prepare weather data", http.StatusInternalServerError)
 		return
 	}
 
 	res, err := h.service.Solve(ctx, params, weatherData)
 	if err != nil {
-		log.Printf("Solve error: %v", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		h.logger.Error("Solve failed", "error", err)
+		h.sendError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(res); err != nil {
-		log.Printf("Encode error: %v", err)
+		h.logger.Error("Failed to encode solve response", "error", err)
 	}
 }
+

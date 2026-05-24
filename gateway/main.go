@@ -1,8 +1,10 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/hubertkuch/solar/gateway/internal/simulation"
 	"github.com/hubertkuch/solar/gateway/internal/weather"
@@ -12,9 +14,14 @@ import (
 )
 
 func main() {
+	// Initialize structured logger
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
 	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("did not connect: %v", err)
+		logger.Error("did not connect", "error", err)
+		os.Exit(1)
 	}
 	defer conn.Close()
 
@@ -23,15 +30,26 @@ func main() {
 	// Dependency Injection
 	weatherProvider := weather.NewOpenMeteoProvider()
 	simService := simulation.NewSimulationService(grpcClient, weatherProvider)
-	simHandler := simulation.NewSimulationHandler(simService)
+	simHandler := simulation.NewSimulationHandler(simService, logger)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/simulation", simHandler.HandleSimulation)
 	mux.HandleFunc("/api/solve", simHandler.HandleSolve)
 
 	port := ":8085"
-	log.Printf("Gateway HTTP server starting on %s...", port)
-	if err := http.ListenAndServe(port, mux); err != nil {
-		log.Fatalf("HTTP server failed: %v", err)
+	server := &http.Server{
+		Addr:              port,
+		Handler:           mux,
+		ReadHeaderTimeout: 3 * time.Second,
+		ReadTimeout:       5 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+
+	logger.Info("Gateway HTTP server starting", "port", port)
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		logger.Error("HTTP server failed", "error", err)
+		os.Exit(1)
 	}
 }
+
